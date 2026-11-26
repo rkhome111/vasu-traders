@@ -1,0 +1,47 @@
+plugins { id 'com.android.application' }
+
+def productionApi = providers.gradleProperty('tradersApiRoot').getOrElse('https://api.vasucabs.com')
+def debugApi = providers.gradleProperty('tradersDebugApiRoot').getOrElse(productionApi)
+def accountUrl = providers.gradleProperty('tradersAccountUrl').getOrElse('https://vasucabs.com/traders-account.html')
+def uploadStore = providers.environmentVariable('TRADERS_UPLOAD_STORE').orNull
+def uploadPassword = providers.environmentVariable('TRADERS_UPLOAD_PASSWORD').orNull
+if ((uploadStore == null) != (uploadPassword == null)) {
+    throw new GradleException('Set both TRADERS_UPLOAD_STORE and TRADERS_UPLOAD_PASSWORD to sign a release.')
+}
+
+android {
+    namespace 'com.vasutraders.app'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.vasutraders'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'API_ROOT', groovy.json.JsonOutput.toJson(productionApi)
+        buildConfigField 'String', 'ACCOUNT_URL', groovy.json.JsonOutput.toJson(accountUrl)
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    signingConfigs {
+        if (uploadStore != null) {
+            upload {
+                storeFile file(uploadStore)
+                storeType 'PKCS12'
+                storePassword uploadPassword
+                keyAlias 'upload'
+                keyPassword uploadPassword
+            }
+        }
+    }
+    buildTypes {
+        debug { buildConfigField 'String', 'API_ROOT', groovy.json.JsonOutput.toJson(debugApi) }
+        release {
+            if (uploadStore != null) signingConfig signingConfigs.upload
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+}
+dependencies { implementation 'androidx.activity:activity:1.13.0' }
